@@ -921,3 +921,25 @@ BEGIN
         (N'OT',   N'5150', N'Occupational Therapy Evaluation',         N'Fall',   2026, 1);
 END
 GO
+
+-- Older versions of the STUDENT LOGIN SEED attached "sophia" to a separate "Student User" staff
+-- row (and added a new one on each startup). Point the login at Sophia Nguyen instead.
+DECLARE @SophiaStaffId INT = (
+    SELECT TOP 1 StaffId FROM dbo.Staff
+    WHERE FirstName = N'Sophia' AND LastName = N'Nguyen' AND Student = 1 AND Admin = 0
+    ORDER BY StaffId
+);
+IF @SophiaStaffId IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM dbo.T_Login WHERE staffid = @SophiaStaffId)
+BEGIN
+    UPDATE dbo.T_Login SET staffid = @SophiaStaffId WHERE username = N'sophia';
+END
+
+-- Remove the leftover "Student User" rows that nothing references any more.
+DELETE s
+FROM dbo.Staff s
+WHERE s.FirstName = N'Student' AND s.LastName = N'User'
+    AND NOT EXISTS (SELECT 1 FROM dbo.T_Login l WHERE l.staffid = s.StaffId)
+    AND NOT EXISTS (SELECT 1 FROM dbo.Cases c WHERE c.CreatedByStaffId = s.StaffId)
+    AND NOT EXISTS (SELECT 1 FROM dbo.Assignment a WHERE a.AssignedTo = s.StaffId OR a.AssignedBy = s.StaffId);
+GO
