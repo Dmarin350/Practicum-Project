@@ -10,7 +10,7 @@ interface AssignmentListProps {
   actions?: (assignment: Assignment) => ReactNode; // buttons beside the status
 }
 
-export const STATUS_LABELS: Record<EncounterStatus, string> = {
+const STATUS_LABELS: Record<EncounterStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
   submitted: "Submitted",
