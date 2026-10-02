@@ -9,6 +9,7 @@ export type View =
   | "courses"
   | "createCase"
   | "assignments"
+  | "assignedCases"
   | "clinicalNotes";
 interface SidebarProps {
   active: View;
@@ -31,6 +32,7 @@ const NAV_ITEMS: { view: View; label: string }[] = [
   { view: "courses", label: "Courses" },
   { view: "createCase", label: "Create Case" },
   { view: "assignments", label: "My Assignments" },
+  { view: "assignedCases", label: "Assigned Cases" },
   { view: "clinicalNotes", label: "Clinical Notes" },
 ];
 

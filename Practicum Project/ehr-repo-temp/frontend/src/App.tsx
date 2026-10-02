@@ -12,6 +12,7 @@ import { Sidebar, STUDENT_VIEWS, View } from "./components/Sidebar";
 import { LoginPage } from "./components/LoginPage";
 import type { LoginResponse } from "./types";
 import { MyAssignmentsPage } from "./components/Assignment/MyAssignmentsPage";
+import { AssignedCasesPage } from "./components/Assignment/AssignedCasesPage";
 import { ClinicalNotesPage } from "./components/ClinicalNotes/ClinicalNotesPage";
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
         {view === "courses" && canView("courses") && <CoursesPage />}
         {view === "createCase" && canView("createCase") && <CreateCasePage staffId={user.staffid} />}
         {view === "assignments" && <MyAssignmentsPage studentId={user.staffid} />}
+        {view === "assignedCases" && canView("assignedCases") && <AssignedCasesPage staffId={user.staffid} />}
         {view === "clinicalNotes" && canView("clinicalNotes") && <ClinicalNotesPage />}
       </main>
     </div>

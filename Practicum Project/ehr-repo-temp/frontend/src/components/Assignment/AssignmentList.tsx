@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Assignment, EncounterStatus } from "../../types";
 
 //AI was used to assist in building this section as dev assigned to it is 
@@ -5,9 +6,11 @@ import type { Assignment, EncounterStatus } from "../../types";
 
 interface AssignmentListProps {
   assignments: Assignment[];
+  studentName?: (staffId: number) => string; // shown when set (instructor view)
+  actions?: (assignment: Assignment) => ReactNode; // buttons beside the status
 }
 
-const STATUS_LABELS: Record<EncounterStatus, string> = {
+export const STATUS_LABELS: Record<EncounterStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
   submitted: "Submitted",
@@ -19,7 +22,7 @@ function formatDueDate(dueDate: string | null) {
   return dueDate ? new Date(dueDate + "Z").toLocaleString() : "No due date";
 }
 
-export function AssignmentList({ assignments }: AssignmentListProps) {
+export function AssignmentList({ assignments, studentName, actions }: AssignmentListProps) {
   return (
     <ul style={{ listStyle: "none", padding: 0 }}>
       {assignments.map((a) => (
@@ -35,11 +38,15 @@ export function AssignmentList({ assignments }: AssignmentListProps) {
         >
           <div>
             <strong>Case #{a.case_id}</strong>
+            {studentName && <> · {studentName(a.assigned_to)}</>}
             <div style={{ fontSize: 14, color: "#555" }}>
               {a.course ?? "No course"} · Due {formatDueDate(a.due_date)}
             </div>
           </div>
-          <span>{STATUS_LABELS[a.encounter_status]}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span>{STATUS_LABELS[a.encounter_status]}</span>
+            {actions?.(a)}
+          </div>
         </li>
       ))}
     </ul>
