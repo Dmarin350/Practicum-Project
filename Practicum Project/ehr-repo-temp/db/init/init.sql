@@ -482,6 +482,17 @@ BEGIN
 END
 GO
 
+-- STUDENT LOGIN SEED: Student staff member plus login "student" / "student123"
+IF NOT EXISTS (SELECT * FROM dbo.T_Login WHERE username = N'student')
+BEGIN
+    INSERT INTO dbo.Staff (FirstName, MiddleName, LastName, Specialization, Student, Admin)
+    VALUES (N'Student', NULL, N'User', N'Nursing', 1, 0)
+
+    INSERT INTO dbo.T_Login (username, password_hash, staffid)
+    VALUES (N'student', N'$2b$12$YTNtjyUFsETeYSiswRUwweeLfbJ7UTORETcnI3JF/6E4.2tP1zb5W', SCOPE_IDENTITY());
+END
+GO
+
 -- Add ProviderId (and its FK) to a Patients table created before this relationship existed.
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Patients') AND name = 'ProviderId')
 BEGIN
