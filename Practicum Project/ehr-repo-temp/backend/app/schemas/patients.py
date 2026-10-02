@@ -8,6 +8,9 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.schemas.drugs import Drug
+from app.schemas.providers import Provider
+
 
 # Fields shared by every Patient.
 class PatientBase(BaseModel):
@@ -15,19 +18,25 @@ class PatientBase(BaseModel):
     first_name: str
     middle_name: str | None = None
     last_name: str
+    preferred_name: str | None = None
     date_of_birth: date
-    gender: str | None = None
+    gender_at_birth: str
+    gender_identity: str
+    pronouns: str
     status: str = "outpatient"
+    provider_id: int | None = None
 
 
 # Shape of the data a client (frontend) sends to create a new patient.
 class PatientCreate(PatientBase):
-    pass
+    drug_ids: list[int] = []
 
 
 # Shape of the data the API returns (adds fields the DB fills in).
 class Patient(PatientBase):
     patient_id: int
+    provider: Provider | None = None
+    drugs: list[Drug] = []
 
     class Config:
         from_attributes = True
