@@ -3,7 +3,26 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import items, patients
+from app.routers import (
+    appointments,
+    drugs,
+    items,
+    login,
+    medical_history,
+    patients,
+    permissions,
+    providers,
+    roles,
+    rooms,
+    staff,
+    users,
+    medical_history,
+    assignment,
+    billing,
+    clinical_notes,
+    cases,
+    courses
+)
 
 app = FastAPI(title="Simple Items API")
 
@@ -18,6 +37,23 @@ app.add_middleware(
 
 app.include_router(items.router)
 app.include_router(patients.router)
+app.include_router(providers.router)
+app.include_router(drugs.router)
+app.include_router(staff.router)
+app.include_router(login.router)
+app.include_router(medical_history.router)
+app.include_router(rooms.router)
+app.include_router(appointments.router)
+app.include_router(billing.router)
+app.include_router(cases.router)
+app.include_router(courses.router)
+
+app.include_router(users.router)
+app.include_router(roles.router)
+app.include_router(permissions.router)
+app.include_router(assignment.router)
+
+app.include_router(clinical_notes.router)
 
 
 @app.get("/health")
