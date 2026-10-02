@@ -15,7 +15,7 @@ interface SidebarProps {
   onNavigate: (view: View) => void;
   username: string;
   onLogout: () => void;
-  allowedViews?: View[]; // omit to show every page
+  allowedViews?: View[]; // student can only see some vi
 }
 
 export const STUDENT_VIEWS: View[] = ["home", "assignments"];
@@ -35,7 +35,7 @@ const NAV_ITEMS: { view: View; label: string }[] = [
 ];
 
 export function Sidebar({ active, onNavigate, username, onLogout, allowedViews }: SidebarProps) {
-  const items = allowedViews
+    const items = allowedViews
     ? NAV_ITEMS.filter(({ view }) => allowedViews.includes(view))
     : NAV_ITEMS;
 

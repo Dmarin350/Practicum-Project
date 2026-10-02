@@ -21,8 +21,7 @@ function App() {
   if (!user) {
     return <LoginPage onLogin={setUser} />;
   }
-
-  // Students (who aren't also admins) only get Home and My Assignments.
+  // Students who are only students get to see Home and My Assignments
   const allowedViews = user.student && !user.admin ? STUDENT_VIEWS : undefined;
   const canView = (v: View) => !allowedViews || allowedViews.includes(v);
 

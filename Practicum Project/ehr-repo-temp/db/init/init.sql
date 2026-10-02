@@ -482,14 +482,13 @@ BEGIN
 END
 GO
 
--- STUDENT LOGIN SEED: Student staff member plus login "student" / "student123"
-IF NOT EXISTS (SELECT * FROM dbo.T_Login WHERE username = N'student')
+-- STUDENT LOGIN SEED: login "sophia" / "student123" for the seeded student Sophia Nguyen
+IF NOT EXISTS (SELECT * FROM dbo.T_Login WHERE username = N'sophia')
 BEGIN
-    INSERT INTO dbo.Staff (FirstName, MiddleName, LastName, Specialization, Student, Admin)
-    VALUES (N'Student', NULL, N'User', N'Nursing', 1, 0)
-
     INSERT INTO dbo.T_Login (username, password_hash, staffid)
-    VALUES (N'student', N'$2b$12$YTNtjyUFsETeYSiswRUwweeLfbJ7UTORETcnI3JF/6E4.2tP1zb5W', SCOPE_IDENTITY());
+    SELECT N'sophia', N'$2b$12$YTNtjyUFsETeYSiswRUwweeLfbJ7UTORETcnI3JF/6E4.2tP1zb5W', StaffId
+    FROM dbo.Staff
+    WHERE FirstName = N'Sophia' AND LastName = N'Nguyen' AND Student = 1 AND Admin = 0;
 END
 GO
 
