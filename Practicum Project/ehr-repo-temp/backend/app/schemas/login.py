@@ -16,6 +16,8 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     username: str
     staffid: int
+    student: bool = False
+    admin: bool = False
 
     class Config:
         from_attributes = True

@@ -8,7 +8,7 @@ import { StaffPage } from "./components/StaffPage";
 import { ProvidersPage } from "./components/ProvidersPage";
 import { RoomsPage } from "./components/RoomsPage";
 import { CoursesPage } from "./components/CoursesPage";
-import { Sidebar, View } from "./components/Sidebar";
+import { Sidebar, STUDENT_VIEWS, View } from "./components/Sidebar";
 import { LoginPage } from "./components/LoginPage";
 import type { LoginResponse } from "./types";
 import { MyAssignmentsPage } from "./components/Assignment/MyAssignmentsPage";
@@ -22,9 +22,14 @@ function App() {
     return <LoginPage onLogin={setUser} />;
   }
 
+  // Students (who aren't also admins) only get Home and My Assignments.
+  const allowedViews = user.student && !user.admin ? STUDENT_VIEWS : undefined;
+  const canView = (v: View) => !allowedViews || allowedViews.includes(v);
+
   return (
     <div className="app-layout">
       <Sidebar active={view} onNavigate={setView} username={user.username}
+        allowedViews={allowedViews}
         onLogout={() => {
           setUser(null);
           setView("home");
@@ -32,17 +37,17 @@ function App() {
       />
 
       <main className="app-main">
-        {view === "home" && <Home />}
-        {view === "items" && <ItemsPage />}
-        {view === "patients" && <PatientsPage />}
-        {view === "staff" && <StaffPage />}
-        {view === "providers" && <ProvidersPage />}
-        {view === "drugs" && <DrugsPage />}
-        {view === "rooms" && <RoomsPage />}
-        {view === "courses" && <CoursesPage />}
-        {view === "createCase" && <CreateCasePage staffId={user.staffid} />}
+        {view === "home" && <Home isStudent={!!allowedViews} />}
+        {view === "items" && canView("items") && <ItemsPage />}
+        {view === "patients" && canView("patients") && <PatientsPage />}
+        {view === "staff" && canView("staff") && <StaffPage />}
+        {view === "providers" && canView("providers") && <ProvidersPage />}
+        {view === "drugs" && canView("drugs") && <DrugsPage />}
+        {view === "rooms" && canView("rooms") && <RoomsPage />}
+        {view === "courses" && canView("courses") && <CoursesPage />}
+        {view === "createCase" && canView("createCase") && <CreateCasePage staffId={user.staffid} />}
         {view === "assignments" && <MyAssignmentsPage studentId={user.staffid} />}
-        {view === "clinicalNotes" && <ClinicalNotesPage />}
+        {view === "clinicalNotes" && canView("clinicalNotes") && <ClinicalNotesPage />}
       </main>
     </div>
   );

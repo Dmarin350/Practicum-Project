@@ -15,7 +15,10 @@ interface SidebarProps {
   onNavigate: (view: View) => void;
   username: string;
   onLogout: () => void;
+  allowedViews?: View[]; // omit to show every page
 }
+
+export const STUDENT_VIEWS: View[] = ["home", "assignments"];
 
 const NAV_ITEMS: { view: View; label: string }[] = [
   { view: "home", label: "Home" },
@@ -31,11 +34,15 @@ const NAV_ITEMS: { view: View; label: string }[] = [
   { view: "clinicalNotes", label: "Clinical Notes" },
 ];
 
-export function Sidebar({ active, onNavigate, username, onLogout }: SidebarProps) {
+export function Sidebar({ active, onNavigate, username, onLogout, allowedViews }: SidebarProps) {
+  const items = allowedViews
+    ? NAV_ITEMS.filter(({ view }) => allowedViews.includes(view))
+    : NAV_ITEMS;
+
   return (
     <nav className="sidebar">
       <ul>
-        {NAV_ITEMS.map(({ view, label }) => (
+        {items.map(({ view, label }) => (
           <li key={view}>
             <button
               onClick={() => onNavigate(view)}
