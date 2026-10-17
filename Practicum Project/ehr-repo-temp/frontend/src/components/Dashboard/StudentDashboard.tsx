@@ -71,6 +71,7 @@ export function StudentDashboard({ username, studentId, onOpen, onViewAll }: Stu
     const due = dueTime(a);
     return isOpen(a) && due !== null && due >= now && due - now <= 7 * DAY_MS;
   }).length;
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
 
   // Open cases, soonest due first; cases without a due date go last
   const upNext = assignments
@@ -101,6 +102,7 @@ export function StudentDashboard({ username, studentId, onOpen, onViewAll }: Stu
             View my assignments →
           </button>
         </div>
+        <ProgressRing percent={percent} done={done} total={total} />
       </section>
 
       {error && <p className="ui-error">{error}</p>}
@@ -196,6 +198,30 @@ function StatCard({ tone, label, value, icon, loading }: StatCardProps) {
       <div>
         <div className="dash-stat-value">{loading ? "–" : value}</div>
         <div className="dash-stat-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressRing({ percent, done, total }: { percent: number; done: number; total: number }) {
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className="dash-ring" role="img" aria-label={`${done} of ${total} cases completed`}>
+      <svg viewBox="0 0 120 120" width="132" height="132">
+        <circle className="dash-ring-track" cx="60" cy="60" r={radius} />
+        <circle
+          className="dash-ring-fill"
+          cx="60"
+          cy="60"
+          r={radius}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - percent / 100)}
+        />
+      </svg>
+      <div className="dash-ring-label">
+        <span className="dash-ring-percent">{percent}%</span>
+        <span className="dash-ring-caption">{done}/{total} done</span>
       </div>
     </div>
   );

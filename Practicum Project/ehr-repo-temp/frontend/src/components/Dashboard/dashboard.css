@@ -102,6 +102,53 @@
   outline-offset: 2px;
 }
 
+/* ---------- Progress ring ---------- */
+
+.dash-ring {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.dash-ring svg {
+  transform: rotate(-90deg);
+}
+
+.dash-ring-track,
+.dash-ring-fill {
+  fill: none;
+  stroke-width: 10;
+}
+
+.dash-ring-track {
+  stroke: rgba(255, 255, 255, 0.15);
+}
+
+.dash-ring-fill {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease;
+}
+
+.dash-ring-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dash-ring-percent {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.dash-ring-caption {
+  font-size: 12px;
+  color: var(--color-on-primary-muted);
+}
+
 /* ---------- Stat cards ---------- */
 
 .dash-stats {
@@ -390,11 +437,17 @@
 
 @media (max-width: 640px) {
   .dash-hero {
+    flex-direction: column;
+    align-items: flex-start;
     padding: 22px 20px;
   }
 
   .dash-hero-title {
     font-size: 24px;
+  }
+
+  .dash-ring {
+    align-self: center;
   }
 
   .dash-item {
