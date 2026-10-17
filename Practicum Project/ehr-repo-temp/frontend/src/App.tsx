@@ -30,6 +30,7 @@ function App() {
   }, []);
 
   const [openAssignment, setOpenAssignment] = useState<Assignment | null>(null); // Case opens from My Assignments list
+  const [caseOpenedFrom, setCaseOpenedFrom] = useState<View>("assignments"); // where the case's Back button returns to
 
   if (checkingSession) {
     return null;
@@ -72,6 +73,7 @@ function App() {
             // Dashboard cases open in the My Assignments workspace
             onOpenAssignment={(a) => {
               setOpenAssignment(a);
+              setCaseOpenedFrom("home");
               setView("assignments");
             }}
             onViewAssignments={() => setView("assignments")}
@@ -86,9 +88,22 @@ function App() {
         {view === "createCase" && canView("createCase") && <CreateCasePage staffId={user.staffid} />}
         {view === "assignments" &&
           (openAssignment ? (
-            <CaseWorkspacePage assignment={openAssignment} onBack={() => setOpenAssignment(null)} />
+            <CaseWorkspacePage
+              assignment={openAssignment}
+              backLabel={caseOpenedFrom === "home" ? "Dashboard" : "My Assignments"}
+              onBack={() => {
+                setOpenAssignment(null);
+                setView(caseOpenedFrom);
+              }}
+            />
           ) : (
-            <MyAssignmentsPage studentId={user.staffid} onOpen={setOpenAssignment} />
+            <MyAssignmentsPage
+              studentId={user.staffid}
+              onOpen={(a) => {
+                setOpenAssignment(a);
+                setCaseOpenedFrom("assignments");
+              }}
+            />
           ))}
         {view === "assignedCases" && canView("assignedCases") && <AssignedCasesPage staffId={user.staffid} />}
         {view === "clinicalNotes" && canView("clinicalNotes") && <ClinicalNotesPage />}
