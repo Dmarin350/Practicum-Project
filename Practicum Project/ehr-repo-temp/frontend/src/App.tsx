@@ -64,7 +64,19 @@ function App() {
       />
 
       <main className="app-main">
-        {view === "home" && <Home isStudent={!!allowedViews} />}
+        {view === "home" && (
+          <Home
+            isStudent={!!allowedViews}
+            username={user.username}
+            staffId={user.staffid}
+            // Dashboard cases open in the My Assignments workspace
+            onOpenAssignment={(a) => {
+              setOpenAssignment(a);
+              setView("assignments");
+            }}
+            onViewAssignments={() => setView("assignments")}
+          />
+        )}
         {view === "patients" && canView("patients") && <PatientsPage />}
         {view === "staff" && canView("staff") && <StaffPage />}
         {view === "providers" && canView("providers") && <ProvidersPage />}
