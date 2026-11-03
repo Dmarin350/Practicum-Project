@@ -6,9 +6,19 @@ export interface CreateDrugInput {
   description: string | null;
 }
 
+// Partial update - only the fields included are changed on the backend.
+export interface UpdateDrugInput {
+  name?: string;
+  description?: string | null;
+}
+
 export const drugsApi = {
   list: () => apiFetch<Drug[]>("/drugs"),
+  // Medication autocomplete: best-matching names for any medication, e.g. "metf" -> ["Metformin", ...]
+  suggest: (query: string) => apiFetch<string[]>(`/drugs/suggest?q=${encodeURIComponent(query)}`),
   create: (input: CreateDrugInput) =>
     apiFetch<Drug>("/drugs", { method: "POST", body: JSON.stringify(input) }),
+  update: (drugId: number, changes: UpdateDrugInput) =>
+    apiFetch<Drug>(`/drugs/${drugId}`, { method: "PATCH", body: JSON.stringify(changes) }),
   remove: (drugId: number) => apiFetch<void>(`/drugs/${drugId}`, { method: "DELETE" }),
 };

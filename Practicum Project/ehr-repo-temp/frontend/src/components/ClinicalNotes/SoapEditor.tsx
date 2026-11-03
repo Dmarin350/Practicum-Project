@@ -338,19 +338,39 @@ export function SoapEditor({
                 </h3>
 
                 {context.recent_labs.length ? (
-                    <ul>
-                        {context.recent_labs.map(
-                            (l, i) => (
-                                <li key={i}>
-                                    {l.test_name}: {l.result}{" "}
-                                    {l.unit || ""}
-                                    {l.flag
-                                        ? ` (${l.flag})`
-                                        : ""}{" "}
-                                    · {formatUtc(l.collected_at)}
+                    <ul className="ui-lab-list">
+                        {context.recent_labs.map((l, i) => {
+                            const flag = l.flag?.trim() ?? "";
+                            const isAbnormal =
+                                flag !== "" &&
+                                !["normal", "none", "n", "within range"].includes(
+                                    flag.toLowerCase()
+                                );
+
+                            return (
+                                <li
+                                    key={i}
+                                    className={`ui-lab${isAbnormal ? " ui-lab--abnormal" : ""}`}
+                                >
+                                    {l.test_name}: {l.result} {l.unit || ""}
+
+                                    {isAbnormal ? (
+                                        <strong
+                                            role="alert"
+                                            className="ui-badge ui-badge--error"
+                                        >
+                                            ⚠ {flag}
+                                        </strong>
+                                    ) : flag ? (
+                                        <span className="ui-badge ui-badge--success">
+                                            {flag}
+                                        </span>
+                                    ) : null}
+
+                                    {" "}· {formatUtc(l.collected_at)}
                                 </li>
-                            )
-                        )}
+                            );
+                        })}
                     </ul>
                 ) : (
                     <p className="note-empty">

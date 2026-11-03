@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
     blankSoap,
@@ -15,19 +15,29 @@ import type {
 } from "../../api/clinicalNotes";
 
 import { patientsApi } from "../../api/patients";
+import {
+    autosaveLabel,
+    useAutosave,
+} from "../../hooks/useAutosave";
+import type { SaveReason } from "../../hooks/useAutosave";
 import type { Patient } from "../../types";
 
+import { confirmDelete } from "../confirmDelete";
 import { SoapEditor } from "./SoapEditor";
 import { NOTE_TEMPLATES } from "./templates";
 
 import "./clinicalNotes.css";
 
-export function ClinicalNotesPage() {
+interface ClinicalNotesPageProps {
+    initialPatientId?: number;
+}
+
+export function ClinicalNotesPage({ initialPatientId }: ClinicalNotesPageProps = {}) {
     const [patients, setPatients] =
         useState<Patient[]>([]);
 
     const [patientId, setPatientId] =
-        useState<number | null>(null);
+        useState<number | null>(initialPatientId ?? null);
 
     const [encounters, setEncounters] =
         useState<Encounter[]>([]);
@@ -79,6 +89,14 @@ export function ClinicalNotesPage() {
     const [message, setMessage] =
         useState<string | null>(null);
 
+    // Bumped on every edit so a save only clears `dirty` if nothing
+    // was typed while it was in flight.
+    const editRevision = useRef(0);
+
+    // Bumped whenever the open note/patient changes so a save that
+    // finishes late doesn't overwrite the newly opened note.
+    const docToken = useRef(0);
+
     useEffect(() => {
         patientsApi
             .list()
@@ -87,6 +105,8 @@ export function ClinicalNotesPage() {
     }, []);
 
     useEffect(() => {
+        docToken.current += 1;
+        autosave.cancel();
         setContext(null);
         setNotes([]);
         setEncounters([]);
@@ -162,6 +182,8 @@ export function ClinicalNotesPage() {
             return;
         }
 
+        docToken.current += 1;
+        autosave.cancel();
         setNote(selected);
         setContent({ ...selected.content });
         setEncounterId(
@@ -198,6 +220,8 @@ export function ClinicalNotesPage() {
             return;
         }
 
+        docToken.current += 1;
+        autosave.cancel();
         setNote(null);
         setContent(blankSoap());
         setSensitivity("general");
@@ -238,19 +262,26 @@ export function ClinicalNotesPage() {
         }
     };
 
-    const save = async () => {
+    const save = async (
+        reason: SaveReason = "manual"
+    ): Promise<boolean> => {
         if (
             patientId === null ||
             encounterId === null ||
             note?.is_archived ||
-            (!dirty && note)
+            // Autosave never creates an empty note; it only runs after the user has typed something.
+            (!dirty && (note || reason === "auto"))
         ) {
-            return;
+            return true;
         }
+
+        const token = docToken.current;
+        const revision = editRevision.current;
+        const isAuto = reason === "auto";
 
         setSaving(true);
         setError(null);
-        setMessage(null);
+        if (!isAuto) setMessage(null);
 
         try {
             const saved = note
@@ -258,7 +289,8 @@ export function ClinicalNotesPage() {
                     note.note_id,
                     note.current_version,
                     content,
-                    summary
+                    // Keep the user's change summary for their next manual save.
+                    isAuto ? "Autosave" : summary
                 )
                 : await clinicalNotesApi.create(
                     patientId,
@@ -266,6 +298,9 @@ export function ClinicalNotesPage() {
                     content,
                     sensitivity
                 );
+
+            // The user switched notes/patients while this was saving.
+            if (token !== docToken.current) return true;
 
             setNote(saved);
 
@@ -277,35 +312,58 @@ export function ClinicalNotesPage() {
                 ),
             ]);
 
-            setReviewVersion(null);
-            setSummary("");
-            setDirty(false);
+            if (!isAuto) {
+                setReviewVersion(null);
+                setSummary("");
+            }
+            
+            if (editRevision.current === revision) {
+                setDirty(false);
+            }
 
             setMessage(
-                `Draft saved as version ${saved.current_version}.`
+                isAuto
+                    ? `Autosaved as version ${saved.current_version}.`
+                    : `Draft saved as version ${saved.current_version}.`
             );
 
-            setVersions(
+            const history =
                 await clinicalNotesApi.versions(
                     saved.note_id
-                )
-            );
+                );
+
+            if (token === docToken.current) {
+                setVersions(history);
+            }
+
+            return true;
         } catch (e) {
-            setError((e as Error).message);
+            if (token === docToken.current) {
+                setError((e as Error).message);
+            }
+            return false;
         } finally {
             setSaving(false);
         }
     };
 
+    const autosave = useAutosave(save, {
+        enabled: !note?.is_archived,
+    });
+
     const archive = async () => {
         if (
             !note ||
-            !window.confirm(
+            !confirmDelete(
+                `note #${note.note_id}`,
+                `/clinical-notes/${note.note_id}`,
                 "Archive this note? It will leave the active patient list."
             )
         ) {
             return;
         }
+
+        autosave.cancel();
 
         try {
             await clinicalNotesApi.archive(
@@ -321,6 +379,8 @@ export function ClinicalNotesPage() {
                 );
             }
 
+            docToken.current += 1;
+            autosave.cancel();
             setNote(null);
             setVersions([]);
             setContent(blankSoap());
@@ -336,10 +396,10 @@ export function ClinicalNotesPage() {
     );
 
     return (
-        <div className="clinical-notes">
-            <h1>Clinical Notes</h1>
+        <div className="ui-page clinical-notes">
+            <h1 className="ui-page-title">Clinical Notes</h1>
 
-            <p className="note-muted">
+            <p className="ui-page-intro">
                 Write a SOAP draft for an
                 encounter. Patient chart
                 information is shown alongside
@@ -440,6 +500,7 @@ export function ClinicalNotesPage() {
 
                         <button
                             type="button"
+                            className="ui-button"
                             onClick={startEncounter}
                         >
                             Start encounter
@@ -682,14 +743,17 @@ export function ClinicalNotesPage() {
                                 content
                             }
                             context={context}
+                            // Not disabled while saving: autosave runs
+                            // between keystrokes and must not steal focus.
                             disabled={
                                 !!reviewVersion ||
-                                !!note?.is_archived ||
-                                saving
+                                !!note?.is_archived
                             }
                             onChange={(next) => {
                                 setContent(next);
                                 setDirty(true);
+                                editRevision.current += 1;
+                                autosave.notifyEdit();
                             }}
                         />
 
@@ -716,6 +780,7 @@ export function ClinicalNotesPage() {
 
                                     <button
                                         type="button"
+                                        className="ui-button"
                                         disabled={
                                             saving ||
                                             encounterId ===
@@ -723,7 +788,7 @@ export function ClinicalNotesPage() {
                                             (!!note &&
                                                 !dirty)
                                         }
-                                        onClick={save}
+                                        onClick={autosave.saveNow}
                                     >
                                         {saving
                                             ? "Saving…"
@@ -735,11 +800,20 @@ export function ClinicalNotesPage() {
                                     {note && (
                                         <button
                                             type="button"
+                                            className="ui-button ui-button--danger"
                                             onClick={archive}
                                         >
                                             Archive note
                                         </button>
                                     )}
+                                    <span
+                                        className="note-muted"
+                                        aria-live="polite"
+                                    >
+                                        {autosaveLabel(
+                                            autosave.status
+                                        )}
+                                    </span>
                                 </div>
                             )}
 

@@ -1,4 +1,5 @@
 import { Field } from "../FormField";
+import "../Cases/cases.css";
 
 // Dropdown options for the patient identity fields. Shared with PatientForm so
 // both forms send the same values to the backend.
@@ -30,18 +31,57 @@ export const EMPTY_DEMOGRAPHICS: DemographicsValues = {
   pronouns: "",
 };
 
+// Whole years since a "YYYY-MM-DD" date of birth, or null if it isn't a date.
+function ageFrom(dateOfBirth: string): number | null {
+  const [y, m, d] = dateOfBirth.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const today = new Date();
+  const hadBirthday = today.getMonth() + 1 > m || (today.getMonth() + 1 === m && today.getDate() >= d);
+  return today.getFullYear() - y - (hadBirthday ? 0 : 1);
+}
+
 interface PatientDemographicsProps {
   values: DemographicsValues;
   onChange: (field: keyof DemographicsValues, value: string) => void;
   errors: Partial<Record<keyof DemographicsValues, string>>;
+  readOnly?: boolean;
 }
 
 // Patient demographics section of the Create Case page.
 // It only displays the values it's given and reports changes back up.
-export function PatientDemographics({ values, onChange, errors }: PatientDemographicsProps) {
+export function PatientDemographics({ values, onChange, errors, readOnly = false }: PatientDemographicsProps) {
   // Returns an onChange handler that updates one field.
   const set = (field: keyof DemographicsValues) => (e: { target: { value: string } }) =>
     onChange(field, e.target.value);
+
+  // Existing patient: show their details as a card instead of disabled inputs.
+  if (readOnly) {
+    if (!values.firstName) {
+      return <p className="case-empty">Choose a patient above to load their demographics.</p>;
+    }
+    const fullName = [values.firstName, values.middleName, values.lastName].filter(Boolean).join(" ");
+    const age = ageFrom(values.dateOfBirth);
+    return (
+      <div className="case-patient">
+        <div className="case-patient-info">
+          <p className="case-patient-name">
+            {fullName}
+            {values.preferredName && <span className="ui-muted"> “{values.preferredName}”</span>}
+          </p>
+          <dl className="ui-detail-list case-patient-details">
+            <dt>Date of birth</dt>
+            <dd>{values.dateOfBirth}{age !== null && ` (${age} y)`}</dd>
+            <dt>Sex at birth</dt>
+            <dd>{values.sex || "—"}</dd>
+            <dt>Gender identity</dt>
+            <dd>{values.genderIdentity || "—"}</dd>
+            <dt>Pronouns</dt>
+            <dd>{values.pronouns || "—"}</dd>
+          </dl>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="form-grid">

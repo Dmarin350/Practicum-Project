@@ -1,9 +1,19 @@
 import { FormEvent, useState } from "react";
 import { useMedicalHistory } from "../../hooks/useMedicalHistory";
+import "./history.css";
+import { confirmDelete } from "../confirmDelete";
 
 interface MedicalHistoryPanelProps {
   patientId: number;
 }
+
+// diagnosis_date comes back as "YYYY-MM-DD". Build the date from its parts so it
+// isn't read as UTC midnight and shown as the previous day in US time zones.
+const dateFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const formatDate = (isoDate: string) => {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return dateFormat.format(new Date(year, month - 1, day));
+};
 
 export function MedicalHistoryPanel({
   patientId,
@@ -60,111 +70,237 @@ export function MedicalHistoryPanel({
   };
 
   if (loading) {
-    return <p>Loading history...</p>;
+    return <p className="history-muted">Loading history...</p>;
   }
 
   return (
-    <div style={{ marginTop: 16 }}>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <div className="history-panel">
+      {error && <p className="ui-error">{error}</p>}
 
-      <h3>Medical History</h3>
+      <div className="history-sections">
+        {/* ---------- Medical history ---------- */}
+        <section className="history-section" aria-labelledby={`medical-history-title-${patientId}`}>
+          <div className="history-section-header">
+            <h3 id={`medical-history-title-${patientId}`} className="history-section-title">
+              Medical History
+            </h3>
+            <span className="history-count">{medicalHistory.length}</span>
+          </div>
 
-      {medicalHistory.length === 0 ? (
-        <p>No medical history recorded.</p>
-      ) : (
-        <ul>
-          {medicalHistory.map((history) => (
-            <li key={history.medical_history_id}>
-              <strong>{history.condition}</strong>
-              {history.diagnosis_date && (
-                <> · Diagnosed: {history.diagnosis_date}</>
-              )}
-              {history.notes && <> · {history.notes}</>}
+          {medicalHistory.length === 0 ? (
+            <p className="history-empty">No medical history recorded.</p>
+          ) : (
+            <ul className="history-list">
+              {medicalHistory.map((history) => (
+                <li key={history.medical_history_id} className="history-entry">
+                  <div className="history-entry-main">
+                    <div className="history-entry-title">{history.condition}</div>
+                    {history.diagnosis_date && (
+                      <div className="history-entry-meta">
+                        Diagnosed {formatDate(history.diagnosis_date)}
+                      </div>
+                    )}
+                    {history.notes && <div className="history-entry-notes">{history.notes}</div>}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  removeMedical(history.medical_history_id)
-                }
-                style={{ marginLeft: 8 }}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                  <button
+                    type="button"
+                    className="ui-button ui-button--danger history-delete"
+                    onClick={() => {
+                      if (
+                        confirmDelete(
+                          `medical history "${history.condition}"`,
+                          `/patients/${patientId}/medical-history/${history.medical_history_id}`
+                        )
+                      ) {
+                        removeMedical(history.medical_history_id);
+                      }
+                    }}
+                    aria-label={`Delete ${history.condition}`}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-      <form onSubmit={handleMedicalSubmit}>
-        <input
-          value={condition}
-          onChange={(e) => setCondition(e.target.value)}
-          placeholder="Condition"
-        />
+          <form onSubmit={handleMedicalSubmit} className="history-form">
+            <div className="history-field">
+              <label htmlFor={`medical-condition-${patientId}`} className="history-label">
+                Condition<span className="history-required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id={`medical-condition-${patientId}`}
+                list={`medical-condition-options-${patientId}`}
+                value={condition}
+                onChange={(e) => setCondition(e.target.value)}
+                placeholder="Search or enter a medical condition"
+                required
+                className="history-input"
+              />
 
-        <input
-          type="date"
-          value={diagnosisDate}
-          onChange={(e) => setDiagnosisDate(e.target.value)}
-        />
+              <datalist id={`medical-condition-options-${patientId}`}>
+                <option value="Hypertension" />
+                <option value="Type 1 diabetes mellitus" />
+                <option value="Type 2 diabetes mellitus" />
+                <option value="Asthma" />
+                <option value="Chronic obstructive pulmonary disease (COPD)" />
+                <option value="Coronary artery disease" />
+                <option value="Heart failure" />
+                <option value="Chronic kidney disease" />
+                <option value="Hyperlipidemia" />
+                <option value="Hypothyroidism" />
+                <option value="Anemia" />
+                <option value="Arthritis" />
+                <option value="Depression" />
+                <option value="Anxiety disorder" />
+                <option value="Migraine" />
+              </datalist>
+            </div>
 
-        <input
-          value={medicalNotes}
-          onChange={(e) => setMedicalNotes(e.target.value)}
-          placeholder="Notes"
-        />
+            <div className="history-field">
+              <label htmlFor={`medical-date-${patientId}`} className="history-label">
+                Diagnosis date
+              </label>
+              <input
+                id={`medical-date-${patientId}`}
+                type="date"
+                value={diagnosisDate}
+                onChange={(e) => setDiagnosisDate(e.target.value)}
+                className="history-input"
+              />
+            </div>
 
-        <button type="submit">Add Medical History</button>
-      </form>
+            <div className="history-field history-field--full">
+              <label htmlFor={`medical-notes-${patientId}`} className="history-label">
+                Notes
+              </label>
+              <input
+                id={`medical-notes-${patientId}`}
+                value={medicalNotes}
+                onChange={(e) => setMedicalNotes(e.target.value)}
+                className="history-input"
+              />
+            </div>
 
-      <h3 style={{ marginTop: 24 }}>Family History</h3>
+            <div className="history-form-actions">
+              <button type="submit" className="ui-button">Add medical history</button>
+            </div>
+          </form>
+        </section>
 
-      {familyHistory.length === 0 ? (
-        <p>No family history recorded.</p>
-      ) : (
-        <ul>
-          {familyHistory.map((history) => (
-            <li key={history.family_history_id}>
-              <strong>{history.relationship}</strong>
-              {" · "}
-              {history.condition}
-              {history.notes && <> · {history.notes}</>}
+        {/* ---------- Family history ---------- */}
+        <section className="history-section" aria-labelledby={`family-history-title-${patientId}`}>
+          <div className="history-section-header">
+            <h3 id={`family-history-title-${patientId}`} className="history-section-title">
+              Family History
+            </h3>
+            <span className="history-count">{familyHistory.length}</span>
+          </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  removeFamily(history.family_history_id)
-                }
-                style={{ marginLeft: 8 }}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+          {familyHistory.length === 0 ? (
+            <p className="history-empty">No family history recorded.</p>
+          ) : (
+            <ul className="history-list">
+              {familyHistory.map((history) => (
+                <li key={history.family_history_id} className="history-entry">
+                  <div className="history-entry-main">
+                    <div className="history-entry-title">
+                      <span className="history-relationship">{history.relationship}</span>
+                      {history.condition}
+                    </div>
+                    {history.notes && <div className="history-entry-notes">{history.notes}</div>}
+                  </div>
 
-      <form onSubmit={handleFamilySubmit}>
-        <input
-          value={relationship}
-          onChange={(e) => setRelationship(e.target.value)}
-          placeholder="Relationship"
-        />
+                  <button
+                    type="button"
+                    className="ui-button ui-button--danger history-delete"
+                    onClick={() => {
+                      if (
+                        confirmDelete(
+                          `family history "${history.relationship}: ${history.condition}"`,
+                          `/patients/${patientId}/family-history/${history.family_history_id}`
+                        )
+                      ) {
+                        removeFamily(history.family_history_id);
+                      }
+                    }}
+                    aria-label={`Delete ${history.relationship}: ${history.condition}`}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-        <input
-          value={familyCondition}
-          onChange={(e) => setFamilyCondition(e.target.value)}
-          placeholder="Condition"
-        />
+          <form onSubmit={handleFamilySubmit} className="history-form">
+            <div className="history-field">
+              <label htmlFor={`family-relationship-${patientId}`} className="history-label">
+                Relationship<span className="history-required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id={`family-relationship-${patientId}`}
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                placeholder="e.g. Mother"
+                required
+                className="history-input"
+              />
+            </div>
 
-        <input
-          value={familyNotes}
-          onChange={(e) => setFamilyNotes(e.target.value)}
-          placeholder="Notes"
-        />
+            <div className="history-field">
+              <label htmlFor={`family-condition-${patientId}`} className="history-label">
+                Condition<span className="history-required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id={`family-condition-${patientId}`}
+                list={`family-condition-options-${patientId}`}
+                value={familyCondition}
+                onChange={(e) => setFamilyCondition(e.target.value)}
+                placeholder="Search or enter a family condition"
+                required
+                className="history-input"
+              />
 
-        <button type="submit">Add Family History</button>
-      </form>
+              <datalist id={`family-condition-options-${patientId}`}>
+                <option value="Type 1 diabetes mellitus" />
+                <option value="Type 2 diabetes mellitus" />
+                <option value="Hypertension" />
+                <option value="Coronary artery disease" />
+                <option value="Heart disease" />
+                <option value="Stroke" />
+                <option value="Breast cancer" />
+                <option value="Colon cancer" />
+                <option value="Lung cancer" />
+                <option value="Asthma" />
+                <option value="Hyperlipidemia" />
+                <option value="Chronic kidney disease" />
+                <option value="Alzheimer's disease" />
+                <option value="Osteoporosis" />
+                <option value="Thyroid disease" />
+              </datalist>
+            </div>
+
+            <div className="history-field history-field--full">
+              <label htmlFor={`family-notes-${patientId}`} className="history-label">
+                Notes
+              </label>
+              <input
+                id={`family-notes-${patientId}`}
+                value={familyNotes}
+                onChange={(e) => setFamilyNotes(e.target.value)}
+                className="history-input"
+              />
+            </div>
+
+            <div className="history-form-actions">
+              <button type="submit" className="ui-button">Add family history</button>
+            </div>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }
