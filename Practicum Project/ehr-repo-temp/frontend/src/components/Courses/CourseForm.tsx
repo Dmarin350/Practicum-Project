@@ -6,7 +6,11 @@ interface CourseFormProps {
   onSubmit: (input: CreateCourseInput) => Promise<boolean>;
 }
 
-const TERMS: CourseTerm[] = ["Fall", "Spring", "Summer"];
+export const TERMS: CourseTerm[] = ["Fall", "Spring", "Summer"];
+
+// Years offered in the dropdowns: five back and five ahead of the current year
+const CURRENT_YEAR = new Date().getFullYear();
+export const YEARS = Array.from({ length: 11 }, (_, i) => CURRENT_YEAR - 5 + i);
 
 // Form for creating a new course. Collects input and hands it up to onSubmit
 // (CoursesPage wires this to useCourses().create). Only clears on success so
@@ -16,7 +20,7 @@ export function CourseForm({ onSubmit }: CourseFormProps) {
   const [courseNumber, setCourseNumber] = useState("");
   const [title, setTitle] = useState("");
   const [term, setTerm] = useState<CourseTerm>("Fall");
-  const [termYear, setTermYear] = useState(String(new Date().getFullYear()));
+  const [termYear, setTermYear] = useState(CURRENT_YEAR);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,7 +31,7 @@ export function CourseForm({ onSubmit }: CourseFormProps) {
       course_number: courseNumber.trim(),
       title: title.trim(),
       term,
-      term_year: Number(termYear),
+      term_year: termYear,
     });
     if (saved) {
       setSubjectCode("");
@@ -37,14 +41,14 @@ export function CourseForm({ onSubmit }: CourseFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+    <form onSubmit={handleSubmit} className="ui-form-bar">
       <input
         value={subjectCode}
         onChange={(e) => setSubjectCode(e.target.value)}
         placeholder="Subject (e.g. PHAR)"
         aria-label="Subject code"
         maxLength={10}
-        style={{ width: 150 }}
+        className="ui-input"
       />
       <input
         value={courseNumber}
@@ -52,7 +56,7 @@ export function CourseForm({ onSubmit }: CourseFormProps) {
         placeholder="Number (e.g. 5310)"
         aria-label="Course number"
         maxLength={10}
-        style={{ width: 150 }}
+        className="ui-input"
       />
       <input
         value={title}
@@ -60,23 +64,29 @@ export function CourseForm({ onSubmit }: CourseFormProps) {
         placeholder="Course title"
         aria-label="Course title"
         maxLength={200}
-        style={{ flex: 1, minWidth: 200 }}
+        className="ui-input ui-input--wide"
       />
-      <select value={term} onChange={(e) => setTerm(e.target.value as CourseTerm)} aria-label="Term">
+      <select
+        value={term}
+        onChange={(e) => setTerm(e.target.value as CourseTerm)}
+        aria-label="Term"
+        className="ui-input ui-input--narrow"
+      >
         {TERMS.map((t) => (
           <option key={t} value={t}>{t}</option>
         ))}
       </select>
-      <input
+      <select
         value={termYear}
-        onChange={(e) => setTermYear(e.target.value)}
-        type="number"
-        min={2000}
-        max={2100}
+        onChange={(e) => setTermYear(Number(e.target.value))}
         aria-label="Term year"
-        style={{ width: 90 }}
-      />
-      <button type="submit">Add course</button>
+        className="ui-input ui-input--narrow"
+      >
+        {YEARS.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+      <button type="submit" className="ui-button">Add course</button>
     </form>
   );
 }

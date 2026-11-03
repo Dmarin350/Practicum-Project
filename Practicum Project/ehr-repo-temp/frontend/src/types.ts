@@ -27,13 +27,6 @@ export interface User {
   created_at: string;
 }
 
-export interface Item {
-  id: number;
-  name: string;
-  description: string | null;
-  created_at: string;
-}
-
 export interface Provider {
   provider_id: number;
   first_name: string;
@@ -109,6 +102,7 @@ export interface Room {
 export interface Appointment {
   appointment_id: number;
   patient_id: number;
+  provider_id: number;
   appointment_datetime: string;
   location: string;
   status: string;
@@ -119,22 +113,6 @@ export interface BillingCharge {
   patient_id: number;
   charge_summary: string;
   charge_amount: string;
-}
-
-export interface MedicalHistory {
-  medical_history_id: number;
-  patient_id: number;
-  condition: string;
-  diagnosis_date: string | null;
-  notes: string | null;
-}
-
-export interface FamilyHistory {
-  family_history_id: number;
-  patient_id: number;
-  relationship: string;
-  condition: string;
-  notes: string | null;
 }
 
 export type EncounterStatus = "not_started" | "in_progress" | "submitted" | "signed";  //for use with Assignment interface
@@ -148,6 +126,35 @@ export interface Assignment {
   assignment_type?: "graded" | "practice";
   assigned_to: number;
   assigned_by: number;
+  encounter_id: number | null; // set once the student starts the case
+  patient_name: string | null; // "Last name, First name"
+  chief_complaint: string | null;
+  feedback: string | null; // instructor feedback; visible to student only after submitting
+  feedback_updated_at: string | null; // instructor feedback logging
+}
+
+// Rubric markers instructors set on a case.
+export type RubricCategory = "diagnosis" | "medication_conflict" | "screening" | "trap" | "other";
+
+// One rubric line in an assignment's grade
+export interface GradeItem {
+  rubric_item_id: number;
+  category: RubricCategory;
+  label: string;
+  points: number;
+  guidance: string | null; // Instructor-only; always null for students
+  points_awarded: number | null;
+  comment: string | null;
+}
+
+// Assignment's rubric and score
+export interface AssignmentGrade {
+  assignment_id: number;
+  released: boolean;
+  items: GradeItem[];
+  total_points: number | null;
+  points_awarded: number | null;
+  scored_count: number | null;
 }
 
 export interface Case {
