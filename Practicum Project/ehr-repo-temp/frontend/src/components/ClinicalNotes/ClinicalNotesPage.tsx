@@ -24,6 +24,7 @@ import type { Patient } from "../../types";
 
 import { confirmDelete } from "../confirmDelete";
 import { SoapEditor } from "./SoapEditor";
+import { AllergyBanner } from "../AllergyBanner";
 import { NOTE_TEMPLATES } from "./templates";
 
 import "./clinicalNotes.css";
@@ -519,6 +520,12 @@ export function ClinicalNotesPage({ initialPatientId }: ClinicalNotesPageProps =
                         ? `${patient.provider.first_name} ${patient.provider.last_name}`
                         : "Not assigned"}
                 </p>
+            )}
+
+            {patient && context && (
+                <AllergyBanner
+                    allergies={context.allergies}
+                />
             )}
 
             {loading && (

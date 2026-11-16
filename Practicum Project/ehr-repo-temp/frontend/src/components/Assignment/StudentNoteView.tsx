@@ -5,6 +5,7 @@ import { clinicalNotesApi, formatUtc } from "../../api/clinicalNotes";
 import type { ChartContext, ClinicalNote } from "../../api/clinicalNotes";
 import type { Assignment } from "../../types";
 import { SoapEditor } from "../ClinicalNotes/SoapEditor";
+import { AllergyBanner } from "../AllergyBanner";
 import "../ClinicalNotes/clinicalNotes.css";
 import "./assignmentNote.css";
 
@@ -78,6 +79,7 @@ export function StudentNoteView({ assignment, studentName, actions, review, onRe
 
       {!loading && note && chart && (
         <>
+          <AllergyBanner allergies={chart.allergies} />
           <p className="assignment-note-banner">Read-only: this is the student's latest saved draft.</p>
           <div className="clinical-notes">
             <SoapEditor content={note.content} context={chart} disabled onChange={() => {}} />

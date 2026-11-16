@@ -6,6 +6,7 @@ import type { Assignment, Case } from "../../types";
 import { AssignmentNote } from "./AssignmentNote";
 import { MedicalHistoryPanel } from "../MedicalHistory/MedicalHistoryPanel";
 import { Section } from "../Section";
+import { AllergyBanner } from "../AllergyBanner";
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -87,6 +88,8 @@ export function CaseWorkspacePage({ assignment, onBack, backLabel = "My Assignme
 
         {caseInfo && (
           <>
+            {chart && <AllergyBanner allergies={chart.allergies} />}
+
             <Section title="Patient Demographics">
               {patient ? (
                 <dl className="ui-detail-list">
