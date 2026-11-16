@@ -4,9 +4,12 @@ import { casesApi } from "../../api/cases";
 import { clinicalNotesApi, formatUtc } from "../../api/clinicalNotes";
 import type { ChartContext, ClinicalNote } from "../../api/clinicalNotes";
 import type { Assignment } from "../../types";
-import { SoapEditor } from "../ClinicalNotes/SoapEditor";
-import { AllergyBanner } from "../AllergyBanner";
+import { NoteBody } from "../ClinicalNotes/NoteBody";
+import { useNoteTemplates } from "../../hooks/useNoteTemplates";
+import type { NoteTemplate } from "../../api/noteTemplates";
 import "../ClinicalNotes/clinicalNotes.css";
+import { PageHeader } from "../PageHeader";
+import { StatusBadge } from "../StatusBadge";
 import "./assignmentNote.css";
 
 interface StudentNoteViewProps {
@@ -21,6 +24,8 @@ interface StudentNoteViewProps {
 // Instructor view of a student's SOAP note: the latest saved draft, read-only.
 // Unsaved typing on the student's side isn't visible until they save.
 export function StudentNoteView({ assignment, studentName, actions, review, onRefresh, onBack }: StudentNoteViewProps) {
+  // Note types, for drawing non-SOAP notes from their template
+  const { templates } = useNoteTemplates();
   const [note, setNote] = useState<ClinicalNote | null>(null);
   const [chart, setChart] = useState<ChartContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,17 +55,17 @@ export function StudentNoteView({ assignment, studentName, actions, review, onRe
 
   return (
     <div className="ui-page">
-      <button type="button" className="ui-button ui-button--secondary ui-back" onClick={onBack}>
-        ← Back to Assigned Cases
-      </button>
-
-      <h1 className="ui-page-title">
-        {studentName} · Case #{assignment.case_id}
-        {assignment.patient_name && ` · ${assignment.patient_name}`}
-      </h1>
-      <p className="ui-page-intro">
-        {assignment.chief_complaint ?? "No chief complaint"} · {assignment.course ?? "No course"}
-      </p>
+      <PageHeader
+        back={{ label: "Assigned Cases", onClick: onBack }}
+        title={
+          <>
+            {studentName} · Case #{assignment.case_id}
+            {assignment.patient_name && ` · ${assignment.patient_name}`}
+          </>
+        }
+        description={`${assignment.chief_complaint ?? "No chief complaint"} · ${assignment.course ?? "No course"}`}
+        actions={<StatusBadge status={assignment.encounter_status} />}
+      />
 
       <div className="assignment-note-toolbar">
         <span className="ui-muted">
@@ -68,21 +73,27 @@ export function StudentNoteView({ assignment, studentName, actions, review, onRe
             ? `Version ${note.current_version} · last saved ${formatUtc(note.last_modified_at)}`
             : "No draft saved yet"}
         </span>
-        <button type="button" className="ui-button ui-button--secondary" onClick={() => { load(); onRefresh?.(); }} disabled={loading}>
+        <button type="button" className="ui-button ui-button--secondary ui-button--small" onClick={() => { load(); onRefresh?.(); }} disabled={loading}>
           Refresh
         </button>
         {actions}
       </div>
 
       {error && <p className="ui-error">{error}</p>}
-      {loading && <p className="ui-muted">Loading note…</p>}
+      {loading && <p className="ui-row-empty">Loading note…</p>}
 
       {!loading && note && chart && (
         <>
-          <AllergyBanner allergies={chart.allergies} />
           <p className="assignment-note-banner">Read-only: this is the student's latest saved draft.</p>
           <div className="clinical-notes">
-            <SoapEditor content={note.content} context={chart} disabled onChange={() => {}} />
+          <NoteBody
+              noteType={note.note_type}
+              template={templates.find((t) => t.id === note.note_type) as NoteTemplate | undefined}
+              content={note.content}
+              context={chart}
+              disabled
+              onChange={() => {}}
+            />
           </div>
         </>
       )}

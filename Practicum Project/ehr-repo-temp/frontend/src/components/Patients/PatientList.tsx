@@ -4,6 +4,8 @@ import type { Patient, Provider } from "../../types";
 import { MedicalHistoryPanel } from "../MedicalHistory/MedicalHistoryPanel";
 import { AppointmentPanel } from "../Appointments/AppointmentPanel";
 import { BillingChargePanel } from "../Billing/BillingChargePanel";
+import { InsurancePanel } from "../Insurance/InsurancePanel";
+import { PortalAccessPanel } from "./PortalAccessPanel";
 import { confirmDelete } from "../confirmDelete";
 import { PatientForm } from "./PatientForm";
 import "./patients.css";
@@ -14,28 +16,36 @@ interface PatientListProps {
   providers: Provider[]; // options for the edit form
   onUpdate: (patientId: number, changes: UpdatePatientInput) => Promise<boolean>;
   onDelete: (patientId: number) => void;
+  permissions: string[]; // the Portal access tab shows for people with user.read
 }
 
 // Toggle buttons are outlined while closed and solid blue while their panel is open
 const toggleClass = (open: boolean) =>
   open ? "ui-button ui-button--small" : "ui-button ui-button--secondary ui-button--small";
 
+// Tabs inside a patient's Details panel
+type DetailTab = "summary" | "history" | "appointments" | "charges" | "insurance" | "portal";
+const DETAIL_TABS: { id: DetailTab; label: string }[] = [
+  { id: "summary", label: "Summary" },
+  { id: "history", label: "Medical history" },
+  { id: "appointments", label: "Appointments" },
+  { id: "charges", label: "Charges" },
+  { id: "insurance", label: "Insurance" },
+  { id: "portal", label: "Portal access" }, // only with user.read (account managers)
+];
+
 const COLUMN_COUNT = 6; // Patient, MRN, DOB, Status, Provider, actions; the detail row spans them all
 
 // Displays every patient as a table row with what you scan for: name, MRN,
 // date of birth, status, and provider. Details opens a panel under the row with
-// the rest (identity, drugs) and the History / Appointments / Charges panels;
-// Edit opens the full patient form there instead.
-export function PatientList({ patients, emptyText, providers, onUpdate, onDelete }: PatientListProps) {
+// tabs for the summary (identity, drugs), history, appointments, charges and
+// insurance; Edit opens the full patient form there instead.
+export function PatientList({ patients, emptyText, providers, onUpdate, onDelete, permissions }: PatientListProps) {
+  const tabs = DETAIL_TABS.filter((tab) => tab.id !== "portal" || permissions.includes("user.read"));
   const [editingPatientId, setEditingPatientId] = useState<number | null>(null);
   const [detailsPatientId, setDetailsPatientId] = useState<number | null>(null);
-  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
-
-  const [appointmentPatientId, setAppointmentPatientId] =
-    useState<number | null>(null);
-
-  const [billingPatientId, setBillingPatientId] =
-    useState<number | null>(null);
+  // Which tab is showing in the open Details panel (only one panel is open at a time)
+  const [detailTab, setDetailTab] = useState<DetailTab>("summary");
 
   if (patients.length === 0) {
     return <p className="ui-row-empty">{emptyText}</p>;
@@ -58,9 +68,6 @@ export function PatientList({ patients, emptyText, providers, onUpdate, onDelete
           {patients.map((patient) => {
             const editing = editingPatientId === patient.patient_id;
             const detailsOpen = detailsPatientId === patient.patient_id;
-            const historyOpen = selectedPatientId === patient.patient_id;
-            const appointmentsOpen = appointmentPatientId === patient.patient_id;
-            const chargesOpen = billingPatientId === patient.patient_id;
             const detailId = `patient-detail-${patient.patient_id}`;
 
             return (
@@ -96,10 +103,11 @@ export function PatientList({ patients, emptyText, providers, onUpdate, onDelete
                         aria-controls={detailsOpen ? detailId : undefined}
                         onClick={() => {
                           setDetailsPatientId(detailsOpen ? null : patient.patient_id);
+                          setDetailTab("summary");
                           setEditingPatientId(null);
                         }}
                       >
-                        {detailsOpen ? "Hide Details" : "Details"}
+                        {detailsOpen ? "Hide details" : "Details"}
                       </button>
                       <button
                         className={toggleClass(editing)}
@@ -108,7 +116,7 @@ export function PatientList({ patients, emptyText, providers, onUpdate, onDelete
                           setDetailsPatientId(null);
                         }}
                       >
-                        {editing ? "Close Edit" : "Edit"}
+                        {editing ? "Close edit" : "Edit"}
                       </button>
                       <button
                         className="ui-button ui-button--danger ui-button--small"
@@ -143,53 +151,46 @@ export function PatientList({ patients, emptyText, providers, onUpdate, onDelete
                         />
                       ) : (
                         <>
-                          <dl className="ui-detail-list patients-details">
-                            <dt>Sex at birth</dt>
-                            <dd>{patient.gender_at_birth ?? "—"}</dd>
-                            <dt>Gender identity</dt>
-                            <dd>{patient.gender_identity}</dd>
-                            <dt>Pronouns</dt>
-                            <dd>{patient.pronouns}</dd>
-                            <dt>Drugs</dt>
-                            <dd>{patient.drugs.length > 0 ? patient.drugs.map((d) => d.name).join(", ") : "None"}</dd>
-                          </dl>
-
-                          <div className="ui-row-actions patients-detail-actions">
-                            <button
-                              className={toggleClass(historyOpen)}
-                              onClick={() => setSelectedPatientId(historyOpen ? null : patient.patient_id)}
-                            >
-                              {historyOpen ? "Hide History" : "View History"}
-                            </button>
-                            <button
-                              className={toggleClass(appointmentsOpen)}
-                              onClick={() => setAppointmentPatientId(appointmentsOpen ? null : patient.patient_id)}
-                            >
-                              {appointmentsOpen ? "Hide Appointments" : "View Appointments"}
-                            </button>
-                            <button
-                              className={toggleClass(chargesOpen)}
-                              onClick={() => setBillingPatientId(chargesOpen ? null : patient.patient_id)}
-                            >
-                              {chargesOpen ? "Hide Charges" : "View Charges"}
-                            </button>
+                          <div className="ui-tabs" role="tablist" aria-label="Patient details">
+                            {tabs.map((tab) => (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={detailTab === tab.id}
+                                className={`ui-tab${detailTab === tab.id ? " ui-tab--active" : ""}`}
+                                onClick={() => setDetailTab(tab.id)}
+                              >
+                                {tab.label}
+                              </button>
+                            ))}
                           </div>
 
-                          {historyOpen && (
-                            <div className="ui-row-detail">
-                              <MedicalHistoryPanel patientId={patient.patient_id} />
-                            </div>
-                          )}
-                          {appointmentsOpen && (
-                            <div className="ui-row-detail">
-                              <AppointmentPanel patientId={patient.patient_id} />
-                            </div>
-                          )}
-                          {chargesOpen && (
-                            <div className="ui-row-detail">
-                              <BillingChargePanel patientId={patient.patient_id} />
-                            </div>
-                          )}
+                          <div className="ui-tab-panel" role="tabpanel">
+                            {detailTab === "summary" && (
+                              <dl className="ui-detail-list patients-details">
+                                <dt>Sex at birth</dt>
+                                <dd>{patient.gender_at_birth ?? "—"}</dd>
+                                <dt>Gender identity</dt>
+                                <dd>{patient.gender_identity}</dd>
+                                <dt>Pronouns</dt>
+                                <dd>{patient.pronouns}</dd>
+                                <dt>Drugs</dt>
+                                <dd>{patient.drugs.length > 0 ? patient.drugs.map((d) => d.name).join(", ") : "None"}</dd>
+                              </dl>
+                            )}
+                            {detailTab === "history" && <MedicalHistoryPanel patientId={patient.patient_id} />}
+                            {detailTab === "appointments" && <AppointmentPanel patientId={patient.patient_id} />}
+                            {detailTab === "charges" && <BillingChargePanel patientId={patient.patient_id} />}
+                            {detailTab === "insurance" && <InsurancePanel patientId={patient.patient_id} />}
+                            {detailTab === "portal" && (
+                              <PortalAccessPanel
+                                patientId={patient.patient_id}
+                                canCreate={permissions.includes("user.create")}
+                                canChangeStatus={permissions.includes("user.manage_roles")}
+                              />
+                            )}
+                          </div>
                         </>
                       )}
                     </td>

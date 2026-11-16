@@ -18,7 +18,7 @@ BEGIN
 END
 GO
 
--- DEVELOPMENT ADMIN RECEIVES ALL CURRENT PERMISSIONS
+-- ADMIN RECEIVES ALL CURRENT PERMISSIONS
 INSERT INTO dbo.RolePermissions (
     RoleId,
     PermissionId
@@ -39,10 +39,12 @@ WHERE
     );
 GO
 
+
 -- INSTRUCTOR AND STUDENT PERMISSIONS
 -- Instructors build cases and manage the clinical catalog; staff.read lets
 -- Create Case list students. Students only read what they need for their
 -- assignments. Note permissions are granted with the note permissions below.
+-- Every person has exactly one of these three roles (dbo.Staff.RoleId).
 INSERT INTO dbo.RolePermissions (
     RoleId,
     PermissionId
@@ -72,9 +74,11 @@ FROM (
         ('FACULTY_INSTRUCTOR', 'room.create'),
         ('FACULTY_INSTRUCTOR', 'room.update'),
         ('FACULTY_INSTRUCTOR', 'room.delete'),
-        ('FACULTY_INSTRUCTOR', 'appointment.read'),  
-        ('FACULTY_INSTRUCTOR', 'billing.read'),      
-        ('FACULTY_INSTRUCTOR', 'history.read'),       
+        ('FACULTY_INSTRUCTOR', 'appointment.read'),
+        ('FACULTY_INSTRUCTOR', 'billing.read'),
+        ('FACULTY_INSTRUCTOR', 'billing.create'),
+        ('FACULTY_INSTRUCTOR', 'billing.update'),
+        ('FACULTY_INSTRUCTOR', 'history.read'),
         ('FACULTY_INSTRUCTOR', 'assignment.read'),
         ('FACULTY_INSTRUCTOR', 'assignment.update'),
         ('FACULTY_INSTRUCTOR', 'assignment.manage'),
@@ -123,16 +127,6 @@ WHERE
             r.RoleName = 'STUDENT'
             AND p.SensitivityLevel = 'general'
             AND p.Action IN ('read', 'create', 'update')
-        )
-        OR (
-            r.RoleName IN (
-                'PHYSICIAN',
-                'NURSE',
-                'PSYCHIATRY',
-                'PHYSICAL_THERAPY',
-                'ALLIED_HEALTH'
-            )
-            AND p.SensitivityLevel = 'general'
         )
     )
     AND NOT EXISTS (

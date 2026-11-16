@@ -9,13 +9,66 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.assignment import Assignment as AssignmentModel
+from app.models.course_enrollments import CourseEnrollment
+from app.models.courses import Course
+from app.models.staff import Staff
 from app.models.clinical_notes import ClinicalNote, Encounter
 from app.models.rubric import AssignmentRubricScore
+from app.models.cases import Case as CaseModel
+from app.note_templates import ANY_DISCIPLINE, get_template, may_author
 from app.schemas.assignment import AssignmentRequest, EncounterStatus
 
 # Used to get assignments by parts that need it
 def get_assignment(db: Session, assignment_id: int):
     return db.query(AssignmentModel).filter(AssignmentModel.assignment_id == assignment_id).first()
+
+# Returns a reason the request can't be assigned, or None when it is fine:
+# every assignee must be a student, and with a course they must be enrolled in it.
+def check_assignees(db: Session, request: AssignmentRequest) -> str | None:
+    student_ids = set(request.assigned_to)
+    if not student_ids:
+        return "Choose at least one student"
+
+    people = db.query(Staff).filter(Staff.staffid.in_(student_ids)).all()
+    if len(people) != len(student_ids):
+        return "A student in your request does not exist"
+    if any(not person.is_student for person in people):
+        return "Cases can only be assigned to students"
+
+    if request.course_id is not None:
+        course = db.get(Course, request.course_id)
+        if course is None or not course.is_active:
+            return "Course not found or not active"
+
+        enrolled = {
+            staff_id
+            for (staff_id,) in db.query(CourseEnrollment.staff_id).filter(
+                CourseEnrollment.course_id == request.course_id,
+                CourseEnrollment.staff_id.in_(student_ids),
+            )
+        }
+        if enrolled != student_ids:
+            return "Every student must be enrolled in the chosen course"
+    
+    # Note types limited by discipline (e.g. nursing shift notes) can only go to
+    # students allowed to write them
+    case = db.get(CaseModel, request.case_id)
+    template = get_template(case.note_type) if case is not None else None
+    if template is not None and template.author_disciplines:
+        outside = sorted(
+            f"{p.first_name} {p.last_name}"
+            for p in people
+            if not may_author(template, p.discipline.code if p.discipline else None)
+        )
+        if outside:
+            reason = (
+                "needs a student with a discipline"
+                if ANY_DISCIPLINE in template.author_disciplines
+                else "is limited to another discipline"
+            )
+            return f"This case uses a {template.label}, which {reason}: {', '.join(outside)}"
+
+    return None
 
 # Assigns one row per student (still able to batch assign)
 def create_assignment(db: Session, request: AssignmentRequest, assigned_by: int):
@@ -23,7 +76,7 @@ def create_assignment(db: Session, request: AssignmentRequest, assigned_by: int)
     rows = [
         AssignmentModel(
             case_id = request.case_id,
-            course = request.course,
+            course_id = request.course_id,
             due_date = request.due_date,
             assignment_type = request.assignment_type,
             assigned_to = student_id,

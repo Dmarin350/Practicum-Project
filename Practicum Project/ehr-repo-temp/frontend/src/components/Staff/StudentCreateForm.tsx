@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { ApiError } from "../../api/client";
 
 import {
     batchStudentsApi,
@@ -10,19 +11,26 @@ import type {
     CreateStudentInput,
 } from "../../api/batchStudents";
 
+import type { Department, Discipline } from "../../types";
+
 
 interface StudentCreateFormProps {
+    departments: Department[];
+    disciplines: Discipline[];
     onCreated: () => void | Promise<void>;
 }
 
 
 export function StudentCreateForm({
+    departments,
+    disciplines,
     onCreated,
 }: StudentCreateFormProps) {
     const [firstName, setFirstName] = useState("");
     const [middleName, setMiddleName] = useState("");
     const [lastName, setLastName] = useState("");
-    const [specialization, setSpecialization] = useState("");
+    const [discipline, setDiscipline] = useState(""); // discipline code
+    const [department, setDepartment] = useState(""); // department code; "" = from the discipline
     const [email, setEmail] = useState("");
     const [username, setUsername] = useState("");
 
@@ -38,7 +46,8 @@ export function StudentCreateForm({
         setFirstName("");
         setMiddleName("");
         setLastName("");
-        setSpecialization("");
+        setDiscipline("");
+        setDepartment("");
         setEmail("");
         setUsername("");
     };
@@ -58,7 +67,8 @@ export function StudentCreateForm({
             first_name: firstName.trim(),
             middle_name: middleName.trim() || null,
             last_name: lastName.trim(),
-            specialization: specialization.trim(),
+            discipline,
+            department: department || null,
             email: email.trim(),
             username: username.trim() || null,
         };
@@ -66,7 +76,7 @@ export function StudentCreateForm({
         if (
             !input.first_name ||
             !input.last_name ||
-            !input.specialization ||
+            !input.discipline ||
             !input.email
         ) {
             setError("Please complete all required fields.");
@@ -92,15 +102,17 @@ export function StudentCreateForm({
                     ? err.message
                     : "Failed to create student account";
 
-            if (message.includes("409")) {
+            const status = err instanceof ApiError ? err.status : null;
+
+            if (status === 409) {
                 setError(
                     "A student with this email or username already exists."
                 );
-            } else if (message.includes("422")) {
+            } else if (status === 422) {
                 setError(
                     "Student information is invalid. Check the fields."
                 );
-            } else if (message.includes("403")) {
+            } else if (status === 403) {
                 setError(
                     "Your account does not have permission to create students."
                 );
@@ -115,21 +127,17 @@ export function StudentCreateForm({
 
 
     return (
-        <section
-            className="ui-form-panel"
-            aria-label="Create student account"
-        >
-            <h2 className="ui-form-panel-title">
-                Add Individual Student
-            </h2>
+        <section className="ui-panel" aria-label="Create student account">
+            <header className="ui-panel-header">
+                <div className="ui-panel-heading">
+                    <h2 className="ui-panel-title">New student</h2>
+                    <p className="ui-panel-description">
+                        Create a student account manually. Login credentials and the Student role are set automatically. The department defaults to the discipline's department.
+                    </p>
+                </div>
+            </header>
 
-            <p
-                className="ui-muted ui-flush"
-            >
-                Create a student account manually.
-                Login credentials and student roles are
-                generated automatically.
-            </p>
+            <div className="ui-panel-body form-stack">
 
             <form
                 onSubmit={handleSubmit}
@@ -192,43 +200,55 @@ export function StudentCreateForm({
                     </div>
 
                     <div className="form-field">
-                        <label htmlFor="student-specialization">
-                            Specialization *
+                        <label htmlFor="student-discipline">
+                            Discipline *
                         </label>
 
                         <select
-                            id="student-specialization"
+                            id="student-discipline"
                             className="ui-input"
-                            value={specialization}
+                            value={discipline}
                             onChange={(e) =>
-                                setSpecialization(e.target.value)
+                                setDiscipline(e.target.value)
                             }
                             required
                             disabled={busy}
                         >
                             <option value="">
-                                Select specialization
+                                Select discipline
                             </option>
 
-                            <option value="Nursing">
-                                Nursing
+                            {disciplines.map((d) => (
+                                <option key={d.discipline_id} value={d.code}>
+                                    {d.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="form-field">
+                        <label htmlFor="student-department">
+                            Department
+                        </label>
+
+                        <select
+                            id="student-department"
+                            className="ui-input"
+                            value={department}
+                            onChange={(e) =>
+                                setDepartment(e.target.value)
+                            }
+                            disabled={busy}
+                        >
+                            <option value="">
+                                From the discipline
                             </option>
 
-                            <option value="Physician">
-                                Physician
-                            </option>
-
-                            <option value="Psychiatry">
-                                Psychiatry
-                            </option>
-
-                            <option value="Physical Therapy">
-                                Physical Therapy
-                            </option>
-
-                            <option value="Allied Health">
-                                Allied Health
-                            </option>
+                            {departments.map((d) => (
+                                <option key={d.department_id} value={d.code}>
+                                    {d.name}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -273,7 +293,7 @@ export function StudentCreateForm({
                 </div>
 
                 <div
-                    className="ui-form-row ui-form-row--actions"
+                    className="ui-form-actions"
                 >
                     <button
                         type="submit"
@@ -343,6 +363,7 @@ export function StudentCreateForm({
                 </div>
             )}
 
+            </div>
         </section>
     );
 }

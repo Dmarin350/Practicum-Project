@@ -9,6 +9,7 @@ from sqlalchemy.orm import relationship
 
 from app.database import Base
 from app.models.cases import Case
+from app.models.courses import Course
 
 
 class Assignment(Base):
@@ -20,7 +21,9 @@ class Assignment(Base):
     encounter_status = Column(
         "EncounterStatus", String(20), server_default="not_started", nullable=False
     )
-    course = Column("Course", String(100), nullable=True)
+    course_id = Column(
+        "CourseId", Integer, ForeignKey("dbo.Courses.CourseId"), nullable=True
+    )
     due_date = Column("DueDate", DateTime, nullable=True)
     assigned_at = Column(
         "AssignedAt",
@@ -50,6 +53,14 @@ class Assignment(Base):
     # Include patient name and chief complaint to assignment listing
     case = relationship(Case)
 
+    # The course offering this assignment belongs to (optional)
+    course_ref = relationship(Course, lazy="joined")
+
+    @property
+    def course(self):
+        """Course label shown in lists, e.g. "NURS 3310"."""
+        return self.course_ref.short_label if self.course_ref else None
+
     @property
     def patient_name(self):
         if self.case:
@@ -60,6 +71,11 @@ class Assignment(Base):
             return f"{patient.last_name}, {patient.first_name}"
         else:
             return None
+    
+    @property
+    def note_type(self):
+        # The note template the student writes.
+        return self.case.note_type if self.case else "SOAP"
 
     @property
     def chief_complaint(self):

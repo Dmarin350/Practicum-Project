@@ -1,8 +1,28 @@
+// The three staff roles. Every person (Staff) has exactly one.
+// PATIENT is reported by /auth/me for a patient portal account; it has no permissions.
+export type RoleName = "ADMIN" | "FACULTY_INSTRUCTOR" | "STUDENT" | "PATIENT";
+
 export interface Role {
   role_id: number;
-  role_name: string;
+  role_name: RoleName | string;
   display_name: string;
-  discipline: string | null;
+  is_active: boolean;
+}
+
+// Academic department (Nursing, Pharmacy, ...). People and courses belong to one.
+export interface Department {
+  department_id: number;
+  code: string; // e.g. "NURS"
+  name: string;
+  is_active: boolean;
+}
+
+// The kind of clinician a person acts as in a chart (Nursing, Pharmacy, ...).
+export interface Discipline {
+  discipline_id: number;
+  code: string; // e.g. "NURSE"
+  name: string;
+  department_id: number | null;
   is_active: boolean;
 }
 
@@ -18,12 +38,12 @@ export interface Permission {
   is_active: boolean;
 }
 
+// An account (email + password). The person behind it is a Staff row.
 export interface User {
   user_id: number;
-  name: string;
   email: string;
-  discipline: string | null;
-  account_status: string;
+  account_status: "active" | "disabled" | "locked" | string;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -59,21 +79,53 @@ export interface Patient {
   drugs: Drug[];
 }
 
+// A person: staff member or student, with their role, discipline, and department.
 export interface Staff {
   staffid: number;
+  user_id: number | null; // null when the person has no account
   first_name: string;
   middle_name: string | null;
   last_name: string;
-  specialization: string;
-  student: boolean;
-  admin: boolean;
+  role_id: number;
+  role_name: RoleName | string | null;
+  discipline_id: number | null;
+  discipline_name: string | null;
+  department_id: number | null;
+  department_name: string | null;
+  student: boolean; // role_name === "STUDENT"
+  admin: boolean; // role_name === "ADMIN"
 }
 
+// What the app needs to create or edit a person.
+export interface StaffInput {
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  role_id: number;
+  discipline_id: number | null;
+  department_id: number | null;
+}
+
+// Who is signed in and what they may do.
 export interface LoginResponse {
   username: string;
-  staffid: number;
+  staffid: number | null;
+  patientid: number | null; // set for a patient portal account (role PATIENT)
+  first_name: string | null;
+  last_name: string | null;
+  role: RoleName | null;
+  role_display_name: string | null;
+  department_id: number | null;
+  department_code: string | null;
+  department_name: string | null;
+  discipline_id: number | null;
+  discipline_name: string | null;
+  discipline_code?: string | null; // e.g. "NURSE"; decides which note types they may write
+  permissions: string[]; // e.g. "patient.read", "note.read.general"
   student: boolean;
   admin: boolean;
+  // Set by POST /auth/login when Duo two-factor is still needed: go here, no session yet
+  duo_auth_url?: string | null;
 }
 
 export interface MedicalHistory {
@@ -115,13 +167,36 @@ export interface BillingCharge {
   charge_amount: string;
 }
 
+export type InsurancePriority = "primary" | "secondary";
+
+export type InsuranceVerificationStatus =
+  | "unverified"
+  | "verified_active"
+  | "verified_inactive"
+  | "unable_to_verify";
+
+export interface PatientInsurance {
+  insurance_id: number;
+  patient_id: number;
+  insurance_company: string;
+  member_id: string;
+  group_number: string | null;
+  policyholder_name: string;
+  policyholder_date_of_birth: string | null;
+  insurance_priority: InsurancePriority;
+  coverage_start_date: string | null;
+  coverage_end_date: string | null;
+  verification_status: InsuranceVerificationStatus;
+}
+
 export type EncounterStatus = "not_started" | "in_progress" | "submitted" | "signed";  //for use with Assignment interface
 
 export interface Assignment {
   assignment_id: number;
   case_id: number;
   encounter_status: EncounterStatus;
-  course: string | null;
+  course_id: number | null;
+  course: string | null; // label, e.g. "NURS 3310"
   due_date: string | null;
   assignment_type?: "graded" | "practice";
   assigned_to: number;
@@ -129,6 +204,7 @@ export interface Assignment {
   encounter_id: number | null; // set once the student starts the case
   patient_name: string | null; // "Last name, First name"
   chief_complaint: string | null;
+  note_type?: string; // The case's note template, e.g. "SOAP", "PROGRESS"
   feedback: string | null; // instructor feedback; visible to student only after submitting
   feedback_updated_at: string | null; // instructor feedback logging
 }
@@ -162,6 +238,7 @@ export interface Case {
   patient_id: number;
   chief_complaint: string;
   narrative: string | null;
+  note_type?: string; // the note template students write for this case
   created_by_staff_id: number;
   created_at: string;
   patient: Patient | null;
@@ -175,8 +252,125 @@ export interface Course {
   title: string;
   term: CourseTerm;
   term_year: number;
+  department_id: number;
+  department_name: string | null;
   is_active: boolean;
   created_at: string;
   short_label: string; // e.g. "PHAR 5310" (computed by the backend)
   label: string; // e.g. "PHAR 5310 – Pharmacotherapy I (Fall 2026)"
 }
+
+// ---- Patient portal (GET /portal/*): the signed-in patient's own record ----
+
+export interface PortalProvider {
+  first_name: string;
+  last_name: string;
+  specialty: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export interface PortalProfile {
+  mrn: string | null;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  preferred_name: string | null;
+  date_of_birth: string;
+  gender_identity: string;
+  pronouns: string;
+  status: "outpatient" | "inpatient" | string;
+  provider: PortalProvider | null;
+}
+
+export interface PortalAppointment {
+  appointment_id: number;
+  appointment_datetime: string;
+  location: string;
+  status: string; // scheduled, completed, cancelled, ...
+  provider_name: string | null;
+  provider_specialty: string | null;
+}
+
+export interface PortalCharge {
+  charge_id: number;
+  charge_summary: string;
+  charge_amount: string; // decimal as a string, e.g. "145.00"
+}
+
+export interface PortalBilling {
+  charges: PortalCharge[];
+  total: string;
+}
+
+export interface PortalInsurance {
+  insurance_id: number;
+  insurance_company: string;
+  member_id: string;
+  group_number: string | null;
+  policyholder_name: string;
+  insurance_priority: string;
+  coverage_start_date: string | null;
+  coverage_end_date: string | null;
+  verification_status: string;
+}
+
+export interface PortalMedicalHistory {
+  medical_history_id: number;
+  condition: string;
+  diagnosis_date: string | null;
+  notes: string | null;
+}
+
+export interface PortalFamilyHistory {
+  family_history_id: number;
+  relationship: string;
+  condition: string;
+  notes: string | null;
+}
+
+export interface PortalMedication {
+  drug_id: number;
+  name: string;
+  dosage: string | null;
+  route: string | null;
+  frequency: string | null;
+}
+
+export interface PortalAllergy {
+  allergy_id: number;
+  substance: string;
+  reaction: string | null;
+}
+
+export interface PortalVital {
+  vital_id: number;
+  recorded_at: string;
+  blood_pressure: string | null;
+  heart_rate: number | null;
+  respiratory_rate: number | null;
+  temperature_c: string | null;
+  oxygen_saturation: string | null;
+  height_cm: string | null;
+  weight_kg: string | null;
+}
+
+export interface PortalLabResult {
+  lab_result_id: number;
+  test_name: string;
+  result: string;
+  unit: string | null;
+  flag: string | null;
+  collected_at: string;
+}
+
+// A patient's portal account, as staff see it (GET /patients/{id}/portal-account).
+export interface PortalAccount {
+  user_id: number;
+  username: string | null;
+  email: string;
+  account_status: "active" | "disabled" | "locked";
+  created_at: string;
+  temporary_password?: string | null; // only in the create response, when generated
+}
+

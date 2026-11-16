@@ -6,7 +6,8 @@ import { StaffPage } from "./components/StaffPage";
 import { ProvidersPage } from "./components/ProvidersPage";
 import { RoomsPage } from "./components/RoomsPage";
 import { CoursesPage } from "./components/CoursesPage";
-import { Sidebar, STUDENT_VIEWS, View } from "./components/Sidebar/Sidebar";
+import { Sidebar } from "./components/Sidebar/Sidebar";
+import { can, isPatient, isStudent, roleLabel, viewsFor, type View } from "./access";
 import { LoginPage } from "./components/Login/LoginPage";
 import { loginApi } from "./api/login";
 import type { Assignment, LoginResponse } from "./types";
@@ -18,6 +19,7 @@ import { StudentGradesPage } from "./components/Grades/StudentGradesPage";
 import { InstructorProgressPage } from "./components/Progress/InstructorProgressPage";
 import { gradesApi } from "./api/grades";
 import { AboutPage } from "./components/About/AboutPage";
+import { PatientPortal } from "./components/Portal/PatientPortal";
 
 function App() {
   const [view, setView] = useState<View>("home");
@@ -40,7 +42,7 @@ function App() {
     useState(0);
 
   useEffect(() => {
-    if (!user || (user.student && !user.admin)) {
+    if (!user || !can(user, "assignment.manage")) {
       setProgressAlertCount(0);
       return;
     }
@@ -74,7 +76,7 @@ function App() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [user?.staffid, user?.student, user?.admin]);
+  }, [user]);
 
   if (checkingSession) {
     return null;
@@ -83,13 +85,43 @@ function App() {
   if (!user) {
     return <LoginPage onLogin={setUser} />;
   }
-  // Students who are only students get to see Home and My Assignments
-  const allowedViews = user.student && !user.admin ? STUDENT_VIEWS : undefined;
-  const canView = (v: View) => !allowedViews || allowedViews.includes(v);
+
+  const logout = () => {
+    loginApi.logout()
+      .catch(() => { }) // sign out locally even if the server call fails
+      .finally(() => {
+        setUser(null);
+        setView("home");
+      });
+    setUser(null);
+    setOpenAssignment(null);
+    setView("home");
+  };
+
+  // Patients sign in on the same page and get the patient portal instead of the staff app
+  if (isPatient(user)) {
+    return <PatientPortal user={user} onLogout={logout} />;
+  }
+  // Every login belongs to a person; without one there is nothing to show.
+  if (user.staffid === null) {
+    return (
+      <main className="app-main">
+        <p className="ui-error" role="alert">
+          Your account is not linked to a person yet. Ask an administrator to finish setting it up.
+        </p>
+      </main>
+    );
+  }
+  const staffId = user.staffid;
+
+  // Students see their own pages; everyone else sees the pages their role's permissions allow
+  const allowedViews = viewsFor(user);
+  const canView = (v: View) => allowedViews.includes(v);
 
   return (
     <div className="app-layout">
       <Sidebar active={view} username={user.username}
+        role={roleLabel(user)}
         progressAlertCount={progressAlertCount}
         onNavigate={(v) => {
           setOpenAssignment(null); // Clicking out of a case closes it
@@ -97,25 +129,15 @@ function App() {
           setView(v);
         }}
         allowedViews={allowedViews}
-        onLogout={() => {
-          loginApi.logout()
-            .catch(() => { }) // sign out locally even if the server call fails
-            .finally(() => {
-              setUser(null);
-              setView("home");
-            });
-          setUser(null);
-          setOpenAssignment(null);
-          setView("home");
-        }}
+        onLogout={logout}
       />
 
       <main className="app-main">
         {view === "home" && (
           <Home
-            isStudent={!!allowedViews}
+            isStudent={isStudent(user)}
             username={user.username}
-            staffId={user.staffid}
+            staffId={staffId}
             // Dashboard cases open in the My Assignments workspace
             onOpenAssignment={(a) => {
               setOpenAssignment(a);
@@ -129,13 +151,14 @@ function App() {
             }}
           />
         )}
-        {view === "patients" && canView("patients") && <PatientsPage />}
+        {view === "patients" && canView("patients") && <PatientsPage permissions={user.permissions} />}
         {view === "staff" && canView("staff") && (
-          <StaffPage canBatchImport={user.admin} />
-        )}        {view === "providers" && canView("providers") && <ProvidersPage />}
+          <StaffPage permissions={user.permissions} />
+        )}
+        {view === "providers" && canView("providers") && <ProvidersPage />}
         {view === "rooms" && canView("rooms") && <RoomsPage />}
-        {view === "courses" && canView("courses") && <CoursesPage />}
-        {view === "createCase" && canView("createCase") && <CreateCasePage staffId={user.staffid} />}
+        {view === "courses" && canView("courses") && <CoursesPage permissions={user.permissions} />}
+        {view === "createCase" && canView("createCase") && <CreateCasePage staffId={staffId} />}
         {view === "assignments" &&
           (openAssignment ? (
             <CaseWorkspacePage
@@ -149,15 +172,15 @@ function App() {
           ) : (
 
             <MyAssignmentsPage
-              studentId={user.staffid}
+              studentId={staffId}
               onOpen={(a) => {
                 setOpenAssignment(a);
                 setCaseOpenedFrom("assignments");
               }}
             />
           ))}
-        {view === "assignedCases" && canView("assignedCases") && <AssignedCasesPage staffId={user.staffid} initialViewingId={reviewId} />}
-        {view === "clinicalNotes" && canView("clinicalNotes") && <ClinicalNotesPage />}
+        {view === "assignedCases" && canView("assignedCases") && <AssignedCasesPage staffId={staffId} initialViewingId={reviewId} />}
+        {view === "clinicalNotes" && canView("clinicalNotes") && <ClinicalNotesPage user={user} />}
         {view === "grades" &&
           canView("grades") && (
             <StudentGradesPage />

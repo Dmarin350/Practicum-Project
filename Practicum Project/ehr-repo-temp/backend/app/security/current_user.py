@@ -2,21 +2,26 @@
 Current User Dependency
 Identifies the caller from the session cookie set by POST /auth/login.
 
-get_current_login() returns the T_Login row (staffid for cases/assignments).
+get_current_login() returns the T_Login row; login.staff is the person (role,
+  department, discipline) and login.staffid is used by cases and assignments.
 get_current_user() returns the linked Users row (user_id for RBAC checks).
+get_current_patient() returns the Patients row of a signed-in patient (portal).
+reject_patient_accounts() keeps patient portal accounts out of the staff API.
 """
 
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Cookie, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.crud import sessions as sessions_crud
 from app.database import get_db
 from app.models.login import Login
+from app.models.patients import Patient
 from app.models.users import User
 from app.security.session_cookie import SESSION_COOKIE
 
 
 def get_current_login(
+    request: Request,
     session_token: str | None = Cookie(None, alias=SESSION_COOKIE),
     db: Session = Depends(get_db),
 ):
@@ -42,6 +47,7 @@ def get_current_login(
             detail="Unknown login",
         )
 
+    request.state.current_user = load_active_user(db, login)
     return login
 
 
@@ -69,8 +75,32 @@ def load_active_user(db: Session, login: Login):
 
     return user
 
+
 def get_current_user(
+    request: Request,
     login: Login = Depends(get_current_login),
-    db: Session = Depends(get_db),
 ):
-    return load_active_user(db, login)
+    return request.state.current_user
+
+
+def get_current_patient(
+    login: Login = Depends(get_current_login),
+) -> Patient:
+    if not login.is_patient_account:
+        raise HTTPException(
+            status_code=403,
+            detail="Not a patient portal account",
+        )
+
+    return login.patient
+
+
+def reject_patient_accounts(
+    login: Login = Depends(get_current_login),
+):
+    """Require an active staff session for every staff API route."""
+    if login.is_patient_account:
+        raise HTTPException(
+            status_code=403,
+            detail="Patient portal accounts can only use the patient portal",
+        )

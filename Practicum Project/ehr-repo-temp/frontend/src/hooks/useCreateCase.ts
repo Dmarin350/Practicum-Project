@@ -290,6 +290,7 @@ export function useCreateCase() {
         patient_id: patientId,
         chief_complaint: caseContent.chiefComplaint.trim(),
         narrative: caseContent.narrative.trim() || null,
+        note_type: caseContent.noteType,
         created_by_staff_id: staffId,
 
         // The current backend saves these rows into patient chart tables.
@@ -341,13 +342,12 @@ export function useCreateCase() {
         try {
           await assignmentApi.create({
             case_id: newCase.case_id,
-            course: assignment.course.trim() || null,
+            course_id: assignment.courseId ? Number(assignment.courseId) : null,
 
             // datetime-local gives local time; the backend stores UTC without a "Z".
             due_date: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 19) : null,
             assignment_type: assignment.assignmentType,
             assigned_to: assignment.studentIds,
-            assigned_by: staffId, // TEMPORARY: the backend will take this from the session
           });
         } catch (err) {
           setCreated(newCase);
