@@ -1,4 +1,4 @@
-import "./allergyBanner.css";
+import "../styles/allergyBanner.css";
 
 interface Allergy {
   substance: string;
