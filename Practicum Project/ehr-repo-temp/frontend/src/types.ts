@@ -77,6 +77,7 @@ export interface Patient {
   provider_id: number | null;
   provider: Provider | null;
   drugs: Drug[];
+  portal_username?: string | null; // only in the response that created the portal login
 }
 
 // A person: staff member or student, with their role, discipline, and department.
